@@ -109,7 +109,7 @@ Keep it that way.
 ### Single sources of truth
 - **Module identity** — `Application/fw_header/fw_header.h`:
   `FW_PRODUCT_ID = 0x504C0804`, `FW_HW_REVISION = 0x0101`,
-  `FW_VERSION_VALUE = 0x0100`.
+  `FW_VERSION_VALUE = 0x0101`.
 - **Firmware version over Modbus** — IR120/IR121 derive from `FW_VERSION_VALUE`.
 - **Register map** — the header comment of `modbus_app.h`, mirrored by the
   `MB_*` constants. Keep comment and constants in step.
@@ -120,7 +120,7 @@ Keep it that way.
 ### Version policy — bump the minor on every change
 
 **Mandatory.** Every change to firmware behaviour ships with `FW_VERSION_VALUE`
-in `fw_header.h` incremented by one minor (`0x0100` → `0x0101`). The version is
+in `fw_header.h` incremented by one minor (`0x0101` → `0x0102`). The version is
 the operator's only way to tell which build is running on a device in the field.
 
 - Minor bump: any firmware-only change — fixes, features, register-map
@@ -191,8 +191,8 @@ Two ordering constraints inherited from 12DI, both load-bearing:
   undetectable.
 - The int16 current view clamps at 32767 (20.000 mA) so `0x8000` stays
   reserved for fault.
-- ETHINT is **PB0** on this board (PB1 on the other modules); it is only
-  configured as an input and not used.
+- Pins were taken from the schematic text, corrected by the designer: CS0 PC10,
+  CS1 PD9, DRDY PD1/PD3, LEDs PB15/PB14/PB10/PE15..PE11. RMII/ETHINT unchanged.
 
 ## Linker / memory contract with the bootloader
 

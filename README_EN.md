@@ -19,9 +19,9 @@ inherited from the `4RTD` HW2.1 variant.
 - Input: 0.1 A fuse → shunt **91 Ω 1206** (firmware nominal 89.9 Ω,
   calibrated) → 1 kΩ + 100 nF → AINx; BAV99 clamps, SMAJ24CA TVS.
 
-Pinout: SPI1 SCLK=PA5, MISO=PA6, MOSI=PB5. ADC0_CS=PC9, ADC1_CS=PD9,
-ADC0_DRDY=PD0, ADC1_DRDY=PD2. Channel LEDs AI0..7 = PB15, PB14, PB9, PE15,
-PE14, PE13, PE12, PE11. STAT_LED=PE9, FACT_RES=PE10, ETHRST=PD11, ETHINT=PB0.
+Pinout: SPI1 SCLK=PA5, MISO=PA6, MOSI=PB5. ADC0_CS=PC10, ADC1_CS=PD9,
+ADC0_DRDY=PD1, ADC1_DRDY=PD3. Channel LEDs AI0..7 = PB15, PB14, PB10, PE15,
+PE14, PE13, PE12, PE11. STAT_LED=PE9, FACT_RES=PE10, ETHRST=PD11, ETHINT=PB1.
 ADC0 serves AI0..AI3, ADC1 AI4..AI7. SPI mode 1, ~2.6 MHz.
 
 ### ADS1220 configuration
@@ -140,7 +140,7 @@ cmake --build --preset Debug
 ```
 
 Identity — `Application/fw_header/fw_header.h`: `FW_PRODUCT_ID=0x504C0804`,
-`FW_HW_REVISION=0x0101`, `FW_VERSION_VALUE=0x0100`.
+`FW_HW_REVISION=0x0101`, `FW_VERSION_VALUE=0x0101`.
 
 ## Flashing
 

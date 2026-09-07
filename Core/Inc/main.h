@@ -57,7 +57,7 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
-#define ETHINT_Pin GPIO_PIN_0
+#define ETHINT_Pin GPIO_PIN_1
 #define ETHINT_GPIO_Port GPIOB
 #define ETHRST_Pin GPIO_PIN_11
 #define ETHRST_GPIO_Port GPIOD
@@ -71,13 +71,13 @@ void Error_Handler(void);
 
 /* Per-converter chip-select (active-low, idle high) and DRDY (active-low),
  * both through the digital isolators. ADC0 serves AI0..AI3, ADC1 AI4..AI7. */
-#define ADC0_CS_Pin         GPIO_PIN_9
+#define ADC0_CS_Pin         GPIO_PIN_10
 #define ADC0_CS_GPIO_Port   GPIOC
 #define ADC1_CS_Pin         GPIO_PIN_9
 #define ADC1_CS_GPIO_Port   GPIOD
-#define ADC0_DRDY_Pin       GPIO_PIN_0
+#define ADC0_DRDY_Pin       GPIO_PIN_1
 #define ADC0_DRDY_GPIO_Port GPIOD
-#define ADC1_DRDY_Pin       GPIO_PIN_2
+#define ADC1_DRDY_Pin       GPIO_PIN_3
 #define ADC1_DRDY_GPIO_Port GPIOD
 
 /* Per-channel status LED (active-high). */
@@ -85,7 +85,7 @@ void Error_Handler(void);
 #define AI0_STAT_GPIO_Port  GPIOB
 #define AI1_STAT_Pin        GPIO_PIN_14
 #define AI1_STAT_GPIO_Port  GPIOB
-#define AI2_STAT_Pin        GPIO_PIN_9
+#define AI2_STAT_Pin        GPIO_PIN_10
 #define AI2_STAT_GPIO_Port  GPIOB
 #define AI3_STAT_Pin        GPIO_PIN_15
 #define AI3_STAT_GPIO_Port  GPIOE

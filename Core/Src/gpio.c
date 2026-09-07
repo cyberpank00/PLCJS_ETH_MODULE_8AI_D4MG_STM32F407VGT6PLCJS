@@ -96,7 +96,7 @@ void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(FACT_RES_GPIO_Port, &GPIO_InitStruct);
 
-  /* ADS1220 chip-selects: ADC0_CS = PC9, ADC1_CS = PD9. */
+  /* ADS1220 chip-selects: ADC0_CS = PC10, ADC1_CS = PD9. */
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -107,13 +107,13 @@ void MX_GPIO_Init(void)
   GPIO_InitStruct.Pin = ADC1_CS_Pin;
   HAL_GPIO_Init(ADC1_CS_GPIO_Port, &GPIO_InitStruct);
 
-  /* ADS1220 DRDY inputs (active-low, driven through the isolators): PD0, PD2. */
+  /* ADS1220 DRDY inputs (active-low, driven through the isolators): PD1, PD3. */
   GPIO_InitStruct.Pin = ADC0_DRDY_Pin|ADC1_DRDY_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
-  /* Channel status LEDs: AI0..AI2 on port B (PB15, PB14, PB9), AI3..AI7 on
+  /* Channel status LEDs: AI0..AI2 on port B (PB15, PB14, PB10), AI3..AI7 on
    * port E (PE15..PE11). */
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
