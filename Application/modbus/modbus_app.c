@@ -232,12 +232,12 @@ static uint16_t read_holding(uint16_t address)
 
     if (in_ch_block(address, &group, &ch)) {
         switch (group) {
-        case MB_HR_CH_GROUP_CURRENT: return (uint16_t)aic_module_int16_current(ch);
-        case MB_HR_CH_GROUP_PERCENT: return (uint16_t)aic_module_int16_percent(ch);
-        case MB_HR_CH_GROUP_ENABLED: return s->ch_enabled[ch];
-        case MB_HR_CH_GROUP_RANGE:   return s->ch_range[ch];
-        case MB_HR_CH_GROUP_SMOOTH:  return s->ch_smooth[ch];
-        default:                     return 0u;
+        case MB_HR_CH_GROUP_READING:  return (uint16_t)aic_module_int16_reading(ch);
+        case MB_HR_CH_GROUP_SCALE_LO: return s->ch_scale_lo_ua[ch];
+        case MB_HR_CH_GROUP_SCALE_HI: return s->ch_scale_hi_ua[ch];
+        case MB_HR_CH_GROUP_ENABLED:  return s->ch_enabled[ch];
+        case MB_HR_CH_GROUP_SMOOTH:   return s->ch_smooth[ch];
+        default:                      return 0u;
         }
     }
     if (in_ai_cal(address, &ch, &is_offset, &word)) {
@@ -296,17 +296,26 @@ static nmbs_error apply_holding_write(uint16_t address, uint16_t value)
 
     if (in_ch_block(address, &group, &ch)) {
         switch (group) {
-        case MB_HR_CH_GROUP_CURRENT:
-        case MB_HR_CH_GROUP_PERCENT:
+        case MB_HR_CH_GROUP_READING:
         case MB_HR_CH_GROUP_RESERVED:
             return NMBS_EXCEPTION_ILLEGAL_DATA_ADDRESS;   /* read-only */
+        case MB_HR_CH_GROUP_SCALE_LO:
+            /* Must stay below the current high threshold. Write the high one
+             * first when moving the whole span upwards. */
+            if (value > SETTINGS_SCALE_MAX_UA || value >= s->ch_scale_hi_ua[ch]) {
+                return NMBS_EXCEPTION_ILLEGAL_DATA_VALUE;
+            }
+            s->ch_scale_lo_ua[ch] = value;
+            break;
+        case MB_HR_CH_GROUP_SCALE_HI:
+            if (value > SETTINGS_SCALE_MAX_UA || value <= s->ch_scale_lo_ua[ch]) {
+                return NMBS_EXCEPTION_ILLEGAL_DATA_VALUE;
+            }
+            s->ch_scale_hi_ua[ch] = value;
+            break;
         case MB_HR_CH_GROUP_ENABLED:
             if (value > 1u) { return NMBS_EXCEPTION_ILLEGAL_DATA_VALUE; }
             s->ch_enabled[ch] = (uint8_t)value;
-            break;
-        case MB_HR_CH_GROUP_RANGE:
-            if (value >= AIC_RANGE_COUNT) { return NMBS_EXCEPTION_ILLEGAL_DATA_VALUE; }
-            s->ch_range[ch] = (uint8_t)value;
             break;
         case MB_HR_CH_GROUP_SMOOTH:
             if (value > SETTINGS_SMOOTH_MAX) { return NMBS_EXCEPTION_ILLEGAL_DATA_VALUE; }

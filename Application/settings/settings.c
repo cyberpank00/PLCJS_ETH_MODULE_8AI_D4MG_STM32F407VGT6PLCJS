@@ -83,11 +83,12 @@ void settings_reset_to_defaults(void)
     s_settings.gateway[2]       = SETTINGS_DEF_GW2;
     s_settings.gateway[3]       = SETTINGS_DEF_GW3;
 
-    /* Per-channel defaults: disabled, 4–20 mA, smoothing off. */
+    /* Per-channel defaults: enabled, 4–20 mA scale, smoothing off. */
     for (uint8_t ch = 0; ch < SETTINGS_AI_CHANNELS; ch++) {
-        s_settings.ch_enabled[ch] = 0u;
-        s_settings.ch_range[ch]   = SETTINGS_DEF_CH_RANGE;
-        s_settings.ch_smooth[ch]  = SETTINGS_DEF_CH_SMOOTH;
+        s_settings.ch_enabled[ch]     = SETTINGS_DEF_CH_ENABLED;
+        s_settings.ch_smooth[ch]      = SETTINGS_DEF_CH_SMOOTH;
+        s_settings.ch_scale_lo_ua[ch] = SETTINGS_DEF_SCALE_LO_UA;
+        s_settings.ch_scale_hi_ua[ch] = SETTINGS_DEF_SCALE_HI_UA;
     }
 
     s_settings.shunt_nominal = SETTINGS_DEF_SHUNT;

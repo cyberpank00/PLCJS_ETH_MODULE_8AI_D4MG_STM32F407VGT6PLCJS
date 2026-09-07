@@ -18,7 +18,8 @@ extern "C" {
 
 /* Magic and version --------------------------------------------------------- */
 #define SETTINGS_MAGIC          0x08AC4A57u
-#define SETTINGS_VERSION        1u
+/* v2: per-channel scale thresholds (lo/hi µA) replaced the 4-20/0-20 selector. */
+#define SETTINGS_VERSION        2u
 
 #define SETTINGS_AI_CHANNELS    8u
 
@@ -57,8 +58,12 @@ extern "C" {
 #define SETTINGS_DEF_GW2            1u
 #define SETTINGS_DEF_GW3            1u
 
-/* Per-channel defaults. */
-#define SETTINGS_DEF_CH_RANGE       0u    /* AIC_RANGE_4_20MA */
+/* Per-channel defaults: enabled, 4–20 mA scale. Thresholds are in µA and
+ * define what the int16 reading maps 0..32767 onto. */
+#define SETTINGS_DEF_CH_ENABLED     1u
+#define SETTINGS_DEF_SCALE_LO_UA    4000u
+#define SETTINGS_DEF_SCALE_HI_UA    20000u
+#define SETTINGS_SCALE_MAX_UA       25000u   /* upper bound for either threshold */
 
 /* Software smoothing (EMA) levels: 0 = off, 1..3 => alpha 1/4, 1/8, 1/16. */
 #define SETTINGS_SMOOTH_OFF         0u
@@ -103,8 +108,9 @@ typedef struct {
 
     /* Per-channel configuration. */
     uint8_t  ch_enabled[SETTINGS_AI_CHANNELS];
-    uint8_t  ch_range[SETTINGS_AI_CHANNELS];       /* 0 = 4–20 mA, 1 = 0–20 mA */
     uint8_t  ch_smooth[SETTINGS_AI_CHANNELS];      /* EMA level 0..3          */
+    uint16_t ch_scale_lo_ua[SETTINGS_AI_CHANNELS]; /* reading 0     <-> lo µA */
+    uint16_t ch_scale_hi_ua[SETTINGS_AI_CHANNELS]; /* reading 32767 <-> hi µA */
 
     uint8_t  adc_rate;              /* ADS1220 data-rate selector 0..2        */
     uint8_t  reserved_a[3];

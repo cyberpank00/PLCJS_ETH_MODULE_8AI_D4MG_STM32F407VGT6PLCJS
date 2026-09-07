@@ -9,15 +9,17 @@
   *  (or 8 register pairs) are channels 0..7.
   *
   *  ---- Holding Registers (FC03/06/16) — compact per-channel block --------
-  *      0..7    current, int16 (RO): 0..32767 = 0..20.000 mA (clamped);
+  *      0..7    reading, int16 (RO): 0..32767 = scale_lo..scale_hi of the
+  *                channel (auto-scaled to the thresholds below), negative
+  *                below scale_lo, clamped to ±32767;
   *                disabled = 0,  fault / not yet valid = −32768 (0x8000)
-  *      8..15   percent of scale, int16 (RO): 0..32767 = 0..100 % of the
-  *                channel scale (4–20 or 0–20 mA), negative below the start;
-  *                disabled = 0,  fault = −32768
-  *      16..23  enabled (0/1)
-  *      24..31  scale: 0 = 4–20 mA (open < 3.6 mA), 1 = 0–20 mA
+  *      8..15   scale low threshold, µA  (default 4000;  0..25000, < high)
+  *      16..23  scale high threshold, µA (default 20000; ..25000, > low)
+  *      24..31  enabled (0/1, default 1)
   *      32..39  smoothing (EMA): 0 off, 1 weak (1/4), 2 medium (1/8), 3 (1/16)
   *      40..47  reserved (read 0, writes rejected)
+  *    Open-loop fault (< 3.6 mA) is only raised on live-zero scales, i.e. when
+  *    the low threshold is >= 3600 µA; over-range (> 21 mA) always applies.
   *
   *  ---- Input Registers (FC04, read-only) — grouped by quantity ----------
   *      300..315 current, float32 mA ×8           (NaN on fault / disabled)
@@ -116,10 +118,10 @@ extern "C" {
 
 /* ---- Compact per-channel block (holding): address = group*8 + ch ---- */
 #define MB_HR_CH_BASE               0u
-#define MB_HR_CH_GROUP_CURRENT      0u    /* int16, read-only */
-#define MB_HR_CH_GROUP_PERCENT      1u    /* int16, read-only */
-#define MB_HR_CH_GROUP_ENABLED      2u
-#define MB_HR_CH_GROUP_RANGE        3u
+#define MB_HR_CH_GROUP_READING      0u    /* int16, read-only */
+#define MB_HR_CH_GROUP_SCALE_LO     1u    /* µA */
+#define MB_HR_CH_GROUP_SCALE_HI     2u    /* µA */
+#define MB_HR_CH_GROUP_ENABLED      3u
 #define MB_HR_CH_GROUP_SMOOTH       4u
 #define MB_HR_CH_GROUP_RESERVED     5u
 #define MB_HR_CH_GROUPS             6u    /* registers 0..47 */

@@ -43,18 +43,24 @@ I     = gain × I_raw + offset                 (per-channel calibration)
 ```
 
 Channel LED: solid = active, off = disabled, fast blink (5 Hz) = fault (open
-loop < 3.6 mA in 4–20 mA mode, over-range > 21 mA / saturated ADC, ADC not
+loop < 3.6 mA on live-zero scales, over-range > 21 mA / saturated ADC, ADC not
 responding).
 
-## Scales and fault detection
+## Channel scale and fault detection
 
-| Reg `24..31` | Scale | Open | Over-range |
-|---|---|---|---|
-| 0 | 4–20 mA | `I < 3.6 mA` (code 1) | `I > 21 mA` or saturation (code 2) |
-| 1 | 0–20 mA | not checked | `I > 21 mA` or saturation (code 2) |
+Each channel's scale is two thresholds in µA — low (`8 + ch`, default 4000)
+and high (`16 + ch`, default 20000). The int16 reading (`0 + ch`) is scaled
+automatically: low → `0`, high → `32767`, negative below low. For a 0–20 mA
+scale write low = `0`.
 
-Code 3 = ADC not responding. Thresholds are constants (`AIC_OPEN_MA`,
-`AIC_OVER_MA` in `aic_module.h`). Max measurable current at 89.9 Ω ≈ 22.8 mA.
+| Condition | Fault |
+|---|---|
+| low threshold ≥ 3600 µA **and** `I < 3.6 mA` | open loop (code 1) |
+| `I > 21 mA` or saturated ADC | over-range (code 2) |
+| no DRDY / config readback mismatch | ADC not responding (code 3) |
+
+Fault limits are constants (`AIC_OPEN_MA`, `AIC_OVER_MA` in `aic_module.h`).
+Max measurable current at 89.9 Ω ≈ 22.8 mA.
 
 ## Calibration
 
@@ -81,10 +87,10 @@ by quantity: 8 consecutive registers (or pairs) = channels 0..7.
 
 | Reg | Description |
 |---|---|
-| 0..7 | **current, int16 (RO)**: `0..32767` = `0…20.000 mA` (clamped); disabled `0`; fault `−32768` |
-| 8..15 | **percent of scale, int16 (RO)**: `0..32767` = `0…100 %` of the channel scale, negative below start; disabled `0`; fault `−32768` |
-| 16..23 | enabled (0/1) |
-| 24..31 | scale: `0` = 4–20 mA, `1` = 0–20 mA |
+| 0..7 | **reading, int16 (RO)**: `0..32767` = `[low … high]` threshold of the channel, negative below low (clamped ±32767); disabled `0`; fault `−32768` |
+| 8..15 | scale low threshold, µA (default `4000`; 0..25000, < high) |
+| 16..23 | scale high threshold, µA (default `20000`; ≤ 25000, > low) |
+| 24..31 | enabled (0/1, default `1`) |
 | 32..39 | smoothing EMA (0 off, 1 = 1/4, 2 = 1/8, 3 = 1/16) |
 | 40..47 | reserved |
 
@@ -129,7 +135,7 @@ V_REF V (2.048).
 | Settings | `0x080C0000` | 128 KB | sector 10 |
 | Calibration | `0x080E0000` | 128 KB | sector 11 (write-once) |
 
-`SETTINGS_MAGIC = 0x08AC4A57`, `SETTINGS_VERSION = 1`. Calibration: 8 slots,
+`SETTINGS_MAGIC = 0x08AC4A57`, `SETTINGS_VERSION = 2`. Calibration: 8 slots,
 magic `0xCA11B08A`.
 
 ## Build
@@ -140,7 +146,7 @@ cmake --build --preset Debug
 ```
 
 Identity — `Application/fw_header/fw_header.h`: `FW_PRODUCT_ID=0x504C0804`,
-`FW_HW_REVISION=0x0101`, `FW_VERSION_VALUE=0x0101`.
+`FW_HW_REVISION=0x0101`, `FW_VERSION_VALUE=0x0102`.
 
 ## Flashing
 

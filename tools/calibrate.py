@@ -19,7 +19,7 @@ the tool asks for explicit confirmation before committing.
 Examples:
     python calibrate.py status --ip 192.168.1.13
     python calibrate.py calibrate --ch 0
-    python calibrate.py set --ch 0 --enable 1 --range 4-20
+    python calibrate.py set --ch 0 --enable 1 --lo 4000 --hi 20000
     python calibrate.py rate 0            # 0 = 20 SPS+FIR, 1 = 90 SPS, 2 = 330 SPS
 """
 
@@ -33,14 +33,13 @@ import time
 IR_CURRENT, IR_RAW, IR_FLAGS, IR_CODE, IR_END = 300, 316, 332, 340, 356
 IR_MODULE_ID, IR_CAL_LOCK = 125, 127
 
-HR_CURRENT, HR_PERCENT, HR_ENABLED, HR_RANGE, HR_SMOOTH = 0, 8, 16, 24, 32
+HR_READING, HR_SCALE_LO, HR_SCALE_HI, HR_ENABLED, HR_SMOOTH = 0, 8, 16, 24, 32
 HR_CAL_BASE, HR_CAL_STRIDE = 540, 4
 HR_TRIG_SAVE, TRIG_SAVE = 117, 0xA5A5
 HR_CAL_COMMIT, CAL_COMMIT_BASE = 131, 0xCA00
 HR_ADC_RATE = 133
 
 CHANNELS = 8
-RANGE_NAME = ["4-20 mA", "0-20 mA"]
 FAULT_NAME = {1: "OPEN", 2: "OVER", 3: "ADC"}
 RATE_NAME = ["20 SPS+FIR", "90 SPS", "330 SPS"]
 
@@ -167,10 +166,9 @@ def cmd_status(mb, _args):
     for ch, s in enumerate(read_all(mb)):
         flags = [n for b, n in ((1, "EN"), (2, "VALID"), (4, "FAULT")) if s["flags"] & b]
         fcode = (s["flags"] >> 8) & 0xFF
-        rng = cfg[HR_RANGE + ch]
-        print("CH%d: %s  I=%.4f mA  raw=%.4f mA  i16=%d  pct=%d  code=%d  [%s]%s%s" % (
-            ch, RANGE_NAME[rng] if rng < 2 else "?", s["cur"], s["raw"],
-            i16(cfg[HR_CURRENT + ch]), i16(cfg[HR_PERCENT + ch]), s["code"], ",".join(flags),
+        print("CH%d: scale %d..%d uA  I=%.4f mA  raw=%.4f mA  i16=%d  code=%d  [%s]%s%s" % (
+            ch, cfg[HR_SCALE_LO + ch], cfg[HR_SCALE_HI + ch], s["cur"], s["raw"],
+            i16(cfg[HR_READING + ch]), s["code"], ",".join(flags),
             (" fault=%s" % FAULT_NAME.get(fcode, fcode)) if fcode else "",
             "  LOCKED" if (lock >> ch) & 1 else ""))
 
@@ -228,10 +226,19 @@ def cmd_set(mb, args):
     ch = args.ch
     if ch is None or not (0 <= ch < CHANNELS):
         raise SystemExit("Specify --ch 0..7")
-    if args.range:
-        idx = 0 if args.range == "4-20" else 1
-        mb.write_single(HR_RANGE + ch, idx)
-        print("CH%d range = %s" % (ch, RANGE_NAME[idx]))
+    if args.lo is not None or args.hi is not None:
+        # Thresholds are cross-validated by the firmware (lo < hi): raise hi
+        # first when the span moves up, lower lo first when it moves down.
+        cur_lo = mb.read_holding(HR_SCALE_LO + ch, 1)[0]
+        cur_hi = mb.read_holding(HR_SCALE_HI + ch, 1)[0]
+        lo = args.lo if args.lo is not None else cur_lo
+        hi = args.hi if args.hi is not None else cur_hi
+        if not hi > lo:
+            raise SystemExit("--hi must be greater than --lo")
+        order = ((HR_SCALE_HI, hi), (HR_SCALE_LO, lo)) if hi > cur_hi else ((HR_SCALE_LO, lo), (HR_SCALE_HI, hi))
+        for reg, val in order:
+            mb.write_single(reg + ch, val)
+        print("CH%d scale = %d..%d uA" % (ch, lo, hi))
     if args.smooth is not None:
         mb.write_single(HR_SMOOTH + ch, args.smooth)
     if args.enable is not None:
@@ -257,7 +264,8 @@ def main():
     p.add_argument("--unit", type=int, default=1)
     p.add_argument("--ch", type=int)
     p.add_argument("--all", action="store_true")
-    p.add_argument("--range", choices=["4-20", "0-20"])
+    p.add_argument("--lo", type=int, help="scale low threshold, uA (default 4000)")
+    p.add_argument("--hi", type=int, help="scale high threshold, uA (default 20000)")
     p.add_argument("--smooth", type=int, choices=range(4))
     p.add_argument("--enable", type=int)
     args = p.parse_args()

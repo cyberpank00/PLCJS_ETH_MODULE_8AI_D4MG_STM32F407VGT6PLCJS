@@ -19,7 +19,7 @@
  * Usage:
  *   node calibrate.mjs status                 [--ip A.B.C.D] [--port 502]
  *   node calibrate.mjs calibrate --ch N | --all
- *   node calibrate.mjs set --ch N [--enable 0|1] [--range 4-20|0-20] [--smooth 0..3]
+ *   node calibrate.mjs set --ch N [--enable 0|1] [--lo uA] [--hi uA] [--smooth 0..3]
  *   node calibrate.mjs rate 0|1|2             (20 SPS+FIR / 90 SPS / 330 SPS)
  */
 
@@ -32,7 +32,7 @@ const MB = {
   IR_CURRENT: 300, IR_RAW: 316, IR_FLAGS: 332, IR_CODE: 340, IR_END: 356,
   IR_MODULE_ID: 125, IR_CAL_LOCK: 127,
   // compact holding block: group*8 + ch
-  HR_CURRENT: 0, HR_PERCENT: 8, HR_ENABLED: 16, HR_RANGE: 24, HR_SMOOTH: 32,
+  HR_READING: 0, HR_SCALE_LO: 8, HR_SCALE_HI: 16, HR_ENABLED: 24, HR_SMOOTH: 32,
   // calibration coefficients: 540 + ch*4 -> gain(2), offset(2)
   HR_CAL_BASE: 540, HR_CAL_STRIDE: 4,
   HR_TRIG_SAVE: 117, TRIG_SAVE: 0xA5A5,
@@ -41,7 +41,6 @@ const MB = {
 };
 
 const CHANNELS = 8;
-const RANGE_NAME = ['4-20 mA', '0-20 mA'];
 const FAULT_NAME = { 1: 'OPEN', 2: 'OVER', 3: 'ADC' };
 
 /* --------------------------- Modbus TCP client -------------------------- */
@@ -196,8 +195,8 @@ async function cmdStatus(mb) {
     const f = [];
     if (s.flags & 1) f.push('EN'); if (s.flags & 2) f.push('VALID'); if (s.flags & 4) f.push('FAULT');
     const fcode = (s.flags >> 8) & 0xff;
-    console.log(`CH${ch}: ${RANGE_NAME[cfg[MB.HR_RANGE + ch]] ?? '?'}  I=${s.cur.toFixed(4)} mA  ` +
-      `raw=${s.raw.toFixed(4)} mA  i16=${i16(cfg[MB.HR_CURRENT + ch])}  pct=${i16(cfg[MB.HR_PERCENT + ch])}  ` +
+    console.log(`CH${ch}: scale ${cfg[MB.HR_SCALE_LO + ch]}..${cfg[MB.HR_SCALE_HI + ch]} uA  I=${s.cur.toFixed(4)} mA  ` +
+      `raw=${s.raw.toFixed(4)} mA  i16=${i16(cfg[MB.HR_READING + ch])}  ` +
       `code=${s.code}  [${f.join(',')}]` +
       (fcode ? ` fault=${FAULT_NAME[fcode] ?? fcode}` : '') +
       ((lock >> ch) & 1 ? '  LOCKED' : ''));
@@ -249,11 +248,22 @@ async function cmdCalibrate(mb, args) {
 async function cmdSet(mb, args) {
   const ch = parseInt(args.ch, 10);
   if (!(ch >= 0 && ch < CHANNELS)) throw new Error('Specify --ch 0..7');
-  if (args.range !== undefined) {
-    const idx = RANGE_NAME.findIndex((n) => n.startsWith(String(args.range)));
-    if (idx < 0) throw new Error('--range must be 4-20 or 0-20');
-    await mb.writeSingle(MB.HR_RANGE + ch, idx);
-    console.log(`CH${ch} range = ${RANGE_NAME[idx]}`);
+  // Thresholds are cross-validated by the firmware (lo < hi): write hi first
+  // when the span moves up, lo first when it moves down.
+  if (args.lo !== undefined || args.hi !== undefined) {
+    const cur = await mb.readHolding(MB.HR_SCALE_LO + ch, 1);
+    const curHi = (await mb.readHolding(MB.HR_SCALE_HI + ch, 1))[0];
+    const lo = args.lo !== undefined ? parseInt(args.lo, 10) : cur[0];
+    const hi = args.hi !== undefined ? parseInt(args.hi, 10) : curHi;
+    if (!(hi > lo)) throw new Error('--hi must be greater than --lo');
+    if (hi > curHi) {          // span moves up: raise hi first so lo < hi holds
+      await mb.writeSingle(MB.HR_SCALE_HI + ch, hi);
+      await mb.writeSingle(MB.HR_SCALE_LO + ch, lo);
+    } else {
+      await mb.writeSingle(MB.HR_SCALE_LO + ch, lo);
+      await mb.writeSingle(MB.HR_SCALE_HI + ch, hi);
+    }
+    console.log(`CH${ch} scale = ${lo}..${hi} uA`);
   }
   if (args.smooth !== undefined) await mb.writeSingle(MB.HR_SMOOTH + ch, parseInt(args.smooth, 10));
   if (args.enable !== undefined) await mb.writeSingle(MB.HR_ENABLED + ch, parseInt(args.enable, 10) ? 1 : 0);

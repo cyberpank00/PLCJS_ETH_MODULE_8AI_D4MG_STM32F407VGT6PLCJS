@@ -38,7 +38,8 @@ static const gpio_ref_t s_stat[AIC_CHANNEL_COUNT] = {
 /* Runtime, derived from settings on aic_module_apply_config(). */
 static aic_channel_status_t s_status[AIC_CHANNEL_COUNT];
 static bool     s_enabled[AIC_CHANNEL_COUNT];
-static uint8_t  s_range[AIC_CHANNEL_COUNT];
+static float    s_scale_lo[AIC_CHANNEL_COUNT];   /* mA */
+static float    s_scale_hi[AIC_CHANNEL_COUNT];   /* mA */
 static uint8_t  s_smooth[AIC_CHANNEL_COUNT];
 static uint16_t s_scan_ms = SETTINGS_DEF_SCAN_MS;
 static uint8_t  s_rate    = SETTINGS_DEF_ADC_RATE;
@@ -71,7 +72,13 @@ static void load_settings(void)
 
     for (uint8_t ch = 0; ch < AIC_CHANNEL_COUNT; ch++) {
         s_enabled[ch] = (s->ch_enabled[ch] != 0u);
-        s_range[ch]   = (s->ch_range[ch] < AIC_RANGE_COUNT) ? s->ch_range[ch] : AIC_RANGE_4_20MA;
+        /* Thresholds are validated on write; guard against a degenerate span
+         * from a corrupt image anyway so the reading maths never divides by 0. */
+        float lo = (float)s->ch_scale_lo_ua[ch] / 1000.0f;
+        float hi = (float)s->ch_scale_hi_ua[ch] / 1000.0f;
+        if (!(hi > lo)) { lo = 4.0f; hi = 20.0f; }
+        s_scale_lo[ch] = lo;
+        s_scale_hi[ch] = hi;
 
         uint8_t smooth = s->ch_smooth[ch];
         if (smooth > SETTINGS_SMOOTH_MAX) { smooth = SETTINGS_SMOOTH_OFF; }
@@ -145,8 +152,9 @@ void aic_module_tick(void)
             const uint8_t ch = (uint8_t)(chip * ADS1220_MUX_COUNT + mux);
             aic_channel_status_t* st = &s_status[ch];
 
-            st->enabled = s_enabled[ch];
-            st->range   = s_range[ch];
+            st->enabled     = s_enabled[ch];
+            st->scale_lo_ma = s_scale_lo[ch];
+            st->scale_hi_ma = s_scale_hi[ch];
 
             if (!st->enabled) {
                 set_disabled(st, ch);
@@ -169,7 +177,8 @@ void aic_module_tick(void)
                 set_fault(st, ch, AIC_FAULT_OVER);
                 continue;
             }
-            if (s_range[ch] == AIC_RANGE_4_20MA && i_cal < AIC_OPEN_MA) {
+            /* Open-loop detection only makes sense on a live-zero scale. */
+            if (s_scale_lo[ch] >= AIC_OPEN_MA && i_cal < AIC_OPEN_MA) {
                 set_fault(st, ch, AIC_FAULT_OPEN);
                 continue;
             }
@@ -202,25 +211,15 @@ static int16_t clamp_i16(float v, float lo)
     return (int16_t)lroundf(v);
 }
 
-int16_t aic_module_int16_current(uint8_t ch)
-{
-    if (ch >= AIC_CHANNEL_COUNT) { return AIC_I16_DISABLED; }
-    const aic_channel_status_t* st = &s_status[ch];
-    if (!st->enabled)            { return AIC_I16_DISABLED; }
-    if (st->fault || !st->valid) { return AIC_I16_FAULT; }
-    return clamp_i16(st->i_cal_ma / AIC_I16_CURRENT_FS_MA * AIC_I16_FULL, 0.0f);
-}
-
-int16_t aic_module_int16_percent(uint8_t ch)
+int16_t aic_module_int16_reading(uint8_t ch)
 {
     if (ch >= AIC_CHANNEL_COUNT) { return AIC_I16_DISABLED; }
     const aic_channel_status_t* st = &s_status[ch];
     if (!st->enabled)            { return AIC_I16_DISABLED; }
     if (st->fault || !st->valid) { return AIC_I16_FAULT; }
 
-    const float lo   = (st->range == AIC_RANGE_4_20MA) ? 4.0f : 0.0f;
-    const float span = 20.0f - lo;
-    return clamp_i16((st->i_cal_ma - lo) / span * AIC_I16_FULL, -AIC_I16_FULL);
+    const float span = s_scale_hi[ch] - s_scale_lo[ch];
+    return clamp_i16((st->i_cal_ma - s_scale_lo[ch]) / span * AIC_I16_FULL, -AIC_I16_FULL);
 }
 
 void aic_module_led_tick(uint16_t period_ms)

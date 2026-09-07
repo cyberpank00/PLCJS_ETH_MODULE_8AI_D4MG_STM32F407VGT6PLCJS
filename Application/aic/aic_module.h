@@ -16,7 +16,7 @@
   *      1..3 => alpha 1/4, 1/8, 1/16); the raw current and the code stay
   *      unfiltered,
   *    - flags faults from the value (the ADS1220 has no fault register):
-  *      open loop (< AIC_OPEN_MA, 4–20 mA scale only), over-range
+  *      open loop (< AIC_OPEN_MA, live-zero scales only), over-range
   *      (> AIC_OVER_MA or a saturated code), converter not responding,
   *    - drives its status LED (solid = active, off = inactive, fast blink =
   *      fault).
@@ -34,13 +34,10 @@ extern "C" {
 
 #define AIC_CHANNEL_COUNT           8u
 
-/* Channel scale (settings.ch_range). */
-#define AIC_RANGE_4_20MA            0u
-#define AIC_RANGE_0_20MA            1u
-#define AIC_RANGE_COUNT             2u
-
-/* NAMUR NE43 style limits, mA (fixed). */
-#define AIC_OPEN_MA                 3.6f    /* below: open loop (4–20 mA only) */
+/* NAMUR NE43 style limits, mA (fixed). The open-loop check is only applied
+ * to live-zero scales, i.e. when the channel's lower threshold is at or above
+ * AIC_OPEN_MA (a 0–20 mA scale legitimately reads 0). */
+#define AIC_OPEN_MA                 3.6f    /* below: open loop                 */
 #define AIC_OVER_MA                 21.0f   /* above: over-range / short        */
 
 /* Fault codes reported in aic_channel_status_t.fault_code. */
@@ -49,18 +46,19 @@ extern "C" {
 #define AIC_FAULT_OVER              2u   /* above 21 mA or saturated code     */
 #define AIC_FAULT_ADC               3u   /* converter not responding (DRDY)   */
 
-/* int16 views (holding registers 0..7 and 8..15). */
+/* int16 reading view (holding registers 0..7): 0..32767 spans the channel's
+ * [scale_lo, scale_hi] thresholds. */
 #define AIC_I16_FAULT               ((int16_t)-32768)
 #define AIC_I16_DISABLED            ((int16_t)0)
 #define AIC_I16_FULL                32767.0f
-#define AIC_I16_CURRENT_FS_MA       20.0f   /* 32767 = 20.000 mA */
 
 typedef struct {
     bool     enabled;
     bool     valid;         /* last conversion produced a usable value      */
     bool     fault;
     uint8_t  fault_code;    /* AIC_FAULT_*                                  */
-    uint8_t  range;         /* AIC_RANGE_*                                  */
+    float    scale_lo_ma;   /* reading 0     <-> this current               */
+    float    scale_hi_ma;   /* reading 32767 <-> this current               */
     int32_t  adc_code;      /* 24-bit signed conversion result              */
     float    i_raw_ma;      /* uncalibrated current, mA                     */
     float    i_cal_ma;      /* calibrated (and smoothed) current, mA        */
@@ -69,7 +67,7 @@ typedef struct {
 /** Initialise SPI, the ADS1220 converters and the runtime configuration. */
 void aic_module_init(void);
 
-/** Re-read settings into the runtime state (ranges, smoothing, ADC rate). */
+/** Re-read settings into the runtime state (scales, smoothing, ADC rate). */
 void aic_module_apply_config(void);
 
 /** Acquire all eight channels once. Blocks for four conversions (~210 ms at
@@ -82,12 +80,9 @@ void aic_module_led_tick(uint16_t period_ms);
 /** Read-only access to the latest per-channel status (NULL if out of range). */
 const aic_channel_status_t* aic_module_get_status(uint8_t ch);
 
-/** int16 current view: 0..32767 = 0..20 mA (clamped); 0 disabled, −32768 fault. */
-int16_t aic_module_int16_current(uint8_t ch);
-
-/** int16 percent-of-range view: 0..32767 = 0..100 % of the channel scale
- *  (4–20 or 0–20 mA), negative below the scale start; 0 disabled, −32768 fault. */
-int16_t aic_module_int16_percent(uint8_t ch);
+/** int16 reading: 0..32767 = scale_lo..scale_hi of the channel (negative
+ *  below scale_lo, clamped to ±32767); 0 disabled, −32768 fault. */
+int16_t aic_module_int16_reading(uint8_t ch);
 
 /** Configured scan period, ms (clamped; the scan itself may take longer). */
 uint16_t aic_module_scan_period_ms(void);

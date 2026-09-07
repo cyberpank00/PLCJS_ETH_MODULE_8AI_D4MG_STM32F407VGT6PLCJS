@@ -56,7 +56,7 @@ board). Diff carefully afterwards.
 | `app/` | Orchestrator: boot order, factory reset, network bring-up, housekeeping loop, acquisition task. Start here. |
 | `spi/` | SPI1 transport (mode 1) shared by both ADS1220. |
 | `ads1220/` | ADS1220 ×2 driver: reset/config, per-mux single-shot conversion synchronised on the DRDY pins, data-rate selection, liveness. Board wiring and register values are documented in its header. |
-| `aic/` | Acquisition + conversion: code → mA, per-channel calibration, fixed NAMUR-style fault thresholds, EMA smoothing, int16 views, channel LEDs. |
+| `aic/` | Acquisition + conversion: code → mA, per-channel calibration, fixed NAMUR-style fault thresholds, EMA smoothing, int16 reading scaled to per-channel lo/hi thresholds, channel LEDs. |
 | `calstore/` | **Write-once** per-channel calibration store in Flash (8 slots). Read this file before touching calibration. |
 | `temp/` | On-chip MCU temperature sensor, exposed as IR126 / HR130. |
 | `modbus/modbus_app.c` | Register-map adapter. **The map is documented in the header comment of `modbus_app.h`.** |
@@ -73,10 +73,13 @@ board). Diff carefully afterwards.
 Multi-channel quantities are grouped **by quantity** (8 registers or 8 pairs =
 channels 0..7). `float32` is two registers, **high word first**.
 
-- Compact block (FC03/06/16) `0..47`: `0..7` int16 current (RO, 0..32767 =
-  0..20 mA), `8..15` int16 percent of scale (RO), `16..23` enabled, `24..31`
-  scale (0 = 4–20, 1 = 0–20 mA), `32..39` EMA level, `40..47` reserved.
-  Disabled reads 0, fault reads −32768 in both int16 groups.
+- Compact block (FC03/06/16) `0..47`: `0..7` int16 reading (RO, 0..32767 =
+  scale_lo..scale_hi of the channel, negative below), `8..15` scale low
+  threshold µA (default 4000), `16..23` scale high threshold µA (default
+  20000), `24..31` enabled (default 1), `32..39` EMA level, `40..47` reserved.
+  Disabled reads 0, fault reads −32768. Threshold writes are validated
+  against each other (lo < hi ≤ 25000 µA) — move `hi` first when raising
+  the whole span.
 - Readings (FC04) `300..355`: current f32 ×8, raw current f32 ×8, flags ×8
   (fault code in bits 15..8: 1 open, 2 over-range, 3 ADC dead), ADC code
   int32 ×8.
@@ -109,7 +112,7 @@ Keep it that way.
 ### Single sources of truth
 - **Module identity** — `Application/fw_header/fw_header.h`:
   `FW_PRODUCT_ID = 0x504C0804`, `FW_HW_REVISION = 0x0101`,
-  `FW_VERSION_VALUE = 0x0101`.
+  `FW_VERSION_VALUE = 0x0102`.
 - **Firmware version over Modbus** — IR120/IR121 derive from `FW_VERSION_VALUE`.
 - **Register map** — the header comment of `modbus_app.h`, mirrored by the
   `MB_*` constants. Keep comment and constants in step.
@@ -120,7 +123,7 @@ Keep it that way.
 ### Version policy — bump the minor on every change
 
 **Mandatory.** Every change to firmware behaviour ships with `FW_VERSION_VALUE`
-in `fw_header.h` incremented by one minor (`0x0101` → `0x0102`). The version is
+in `fw_header.h` incremented by one minor (`0x0102` → `0x0103`). The version is
 the operator's only way to tell which build is running on a device in the field.
 
 - Minor bump: any firmware-only change — fixes, features, register-map
@@ -140,7 +143,7 @@ Bump checklist: `FW_VERSION_VALUE` in `fw_header.h`, the version rows in
 | 11 | `0x080E0000` | Write-once calibration (`calstore.c`) |
 
 - `settings_t` layout is frozen; reordering or resizing requires bumping
-  `SETTINGS_VERSION` (currently 1, magic `0x08AC4A57`). A mismatch silently
+  `SETTINGS_VERSION` (currently 2, magic `0x08AC4A57`). A mismatch silently
   reverts deployed units to factory defaults.
 - The field is named `use_dhcp` but holds a tri-state net mode (static / DHCP
   / link-local). Kept for parity with the sibling modules.
@@ -184,13 +187,13 @@ Two ordering constraints inherited from 12DI, both load-bearing:
 - ADS1220 has **no fault register**: open/over-range are inferred from the
   calibrated current and from a saturated code (`AIC_CODE_SATURATED`); a dead
   converter is one whose DRDY never asserts or whose config readback mismatches.
-  The 0–20 mA scale skips the open check because 0 mA is a valid input there.
+  The open check is skipped when the channel's low threshold is below 3.6 mA
+  (e.g. a 0–20 mA scale), because 0 mA is a valid input there.
 - The full scale is `V_REF / R_shunt` ≈ 22.8 mA at 89.9 Ω — the 4–20 mA
   span sits at ~88 % of the ADC range, leaving room for the 21 mA over-range
   limit. Do not raise the shunt above ~93 Ω or the over-range limit becomes
   undetectable.
-- The int16 current view clamps at 32767 (20.000 mA) so `0x8000` stays
-  reserved for fault.
+- The int16 reading clamps at ±32767 so `0x8000` stays reserved for fault.
 - Pins were taken from the schematic text, corrected by the designer: CS0 PC10,
   CS1 PD9, DRDY PD1/PD3, LEDs PB15/PB14/PB10/PE15..PE11. RMII/ETHINT unchanged.
 
