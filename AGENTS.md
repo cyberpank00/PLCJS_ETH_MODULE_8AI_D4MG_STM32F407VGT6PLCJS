@@ -194,7 +194,7 @@ Two ordering constraints inherited from 12DI, both load-bearing:
   limit. Do not raise the shunt above ~93 Ω or the over-range limit becomes
   undetectable.
 - The int16 reading clamps at ±32767 so `0x8000` stays reserved for fault.
-- Production pinout (from the designer, the schematic PDF in DOC/ is older):
+- Production pinout (matches DOC/ETH_MODULE_8AIC_HW1.1_FW1.3.SCH, a PDF):
   ADC0_CS PA9, ADC1_CS PD8, ADC0_DRDY PD10, ADC1_DRDY PD9, LEDs
   PB15/PB14/PB10/PE15..PE11. RMII/ETHINT unchanged.
 
