@@ -71,13 +71,13 @@ void Error_Handler(void);
 
 /* Per-converter chip-select (active-low, idle high) and DRDY (active-low),
  * both through the digital isolators. ADC0 serves AI0..AI3, ADC1 AI4..AI7. */
-#define ADC0_CS_Pin         GPIO_PIN_10
-#define ADC0_CS_GPIO_Port   GPIOC
-#define ADC1_CS_Pin         GPIO_PIN_9
+#define ADC0_CS_Pin         GPIO_PIN_9
+#define ADC0_CS_GPIO_Port   GPIOA
+#define ADC1_CS_Pin         GPIO_PIN_8
 #define ADC1_CS_GPIO_Port   GPIOD
-#define ADC0_DRDY_Pin       GPIO_PIN_1
+#define ADC0_DRDY_Pin       GPIO_PIN_10
 #define ADC0_DRDY_GPIO_Port GPIOD
-#define ADC1_DRDY_Pin       GPIO_PIN_3
+#define ADC1_DRDY_Pin       GPIO_PIN_9
 #define ADC1_DRDY_GPIO_Port GPIOD
 
 /* Per-channel status LED (active-high). */
