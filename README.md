@@ -1,10 +1,10 @@
 # PLCJS_ETH_MODULE_8AIC_D4MG_STM32F407VGT6
 
 <p align="center">
-  <img src="DOC/MAIN_BOARD.png" alt="Плата PLCJS Ethernet 8AIC (HW1.1)" width="600">
+  <img src="DOC/MAIN_BOARD.png" alt="Плата PLCJS Ethernet 8AIC (HW1.1)" width="500">
 </p>
 
-<p align="center"><strong>Плата модуля 8AIC, HW1.1</strong></p>
+<p align="center"><strong>Плата модуля 8AIC, HW1.0</strong></p>
 
 Прошивка Ethernet-модуля PLCJS с 8 аналоговыми токовыми входами (4–20 mA /
 0–20 mA) на базе `STM32F407VGT6`.
