@@ -1,5 +1,11 @@
 # PLCJS_ETH_MODULE_8AIC_D4MG_STM32F407VGT6
 
+<p align="center">
+  <img src="DOC/MAIN_BOARD.png" alt="PLCJS Ethernet 8AIC board (HW1.1)" width="600">
+</p>
+
+<p align="center"><strong>8AIC module board, HW1.1</strong></p>
+
 Firmware for the PLCJS Ethernet module with 8 analog current inputs
 (4–20 mA / 0–20 mA), based on `STM32F407VGT6`.
 

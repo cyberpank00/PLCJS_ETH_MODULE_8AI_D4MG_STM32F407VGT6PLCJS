@@ -40,7 +40,7 @@ observable it was exercised against hardware.
 | `Core/`, `Drivers/`, `Middlewares/`, `LWIP/`, `cmake/stm32cubemx/` | STM32CubeMX | Regenerated from the `.ioc`. |
 | `startup_stm32f407xx.s`, `STM32F407XX_FLASH.ld` | hand-edited | Diverged from CubeMX output — see *Linker*. |
 | `tools/` | hand-written | Calibration helpers (`calibrate.mjs`, `calibrate.py`, own `README.md`). |
-| `DOC/` | assets | Schematic PDF. |
+| `DOC/` | assets | Schematic PDF, board photo (`MAIN_BOARD.png`, used by the READMEs). |
 
 **CubeMX regeneration hazard.** Regenerating from the `.ioc` overwrites `Core/`,
 `Drivers/`, `Middlewares/`, `LWIP/` and `cmake/stm32cubemx/CMakeLists.txt`, some
